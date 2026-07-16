@@ -1,10 +1,11 @@
 <?php
-$host = "localhost";
+$host = "acela.proxy.rlwy.net";
 $user = "root";
-$pass = "";
-$db   = "egg_system";
+$pass = "lQWImwnvBhVpqbswKiGCYDOeEFYnuENf";
+$db   = "railway";
+$port = 21972
 
-$conn = mysqli_connect($host, $user, $pass, $db);
+$conn = mysqli_connect($host, $user, $pass, $db, $port);
 
 if (!$conn) {
     die("Koneksi gagal: " . mysqli_connect_error());
