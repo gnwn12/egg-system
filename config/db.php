@@ -3,7 +3,7 @@ $host = "acela.proxy.rlwy.net";
 $user = "root";
 $pass = "lQWImwnvBhVpqbswKiGCYDOeEFYnuENf";
 $db   = "railway";
-$port = 21972
+$port = 21972;
 
 $conn = mysqli_connect($host, $user, $pass, $db, $port);
 
