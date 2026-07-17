@@ -43,8 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['barcode'])) {
                 $update = mysqli_query($conn, "UPDATE eggs SET status = 'OUT_FARM' WHERE id = $egg_id");
                 
                 if ($update) {
-                    // 4. Catat riwayat log keluar ke tabel egg_logs (DISEBARKAN KE EGG_ID SESUAI STRUKTUR DB)
-                    // Ditambahkan role 'peternak' agar sesuai dengan struktur database sistem log kamu
+                    // 4. Catat riwayat log keluar ke tabel egg_logs
                     $log_query = "INSERT INTO egg_logs (egg_id, store_id, status, location, role, created_at) 
                                   VALUES ($egg_id, '$store_id', 'OUT_FARM', 'Keluar Peternakan', 'peternak', NOW())";
                     mysqli_query($conn, $log_query);
@@ -79,6 +78,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['barcode'])) {
     <title>Scan Keluar Peternakan</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Tambahkan Library Scanner HTML5-QRCode -->
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>body { font-family: 'Plus Jakarta Sans', sans-serif; }</style>
 </head>
@@ -112,40 +113,101 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['barcode'])) {
 
     <div class="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 space-y-6">
         
-        <button type="button" class="w-fit flex items-center gap-2 px-4 py-2.5 bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-700 font-semibold text-sm rounded-xl transition">
+        <!-- Tombol Pemicu Kamera -->
+        <button type="button" id="btn-camera" class="w-fit flex items-center gap-2 px-4 py-2.5 bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-700 font-semibold text-sm rounded-xl transition cursor-pointer">
             <i data-lucide="camera" class="w-4 h-4 text-gray-500"></i>
             <span>Scan Kamera (Auto)</span>
         </button>
 
-        <form action="" method="POST" class="space-y-5">
-            
+        <!-- Area Tampilan Kamera (Awalnya disembunyikan) -->
+        <div id="camera-container" class="hidden w-full border-2 border-dashed border-gray-300 rounded-2xl p-2 bg-gray-50">
+            <div id="reader" class="w-full rounded-xl overflow-hidden"></div>
+            <button type="button" id="btn-close-camera" class="w-full mt-3 py-2 bg-red-100 text-red-600 hover:bg-red-200 font-bold rounded-xl text-sm transition">
+                Tutup Kamera
+            </button>
+        </div>
+
+        <form action="" method="POST" id="scan-form" class="space-y-5">
             <input type="hidden" name="store_id" value="1">
 
             <div>
-                <label for="barcode" class="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-2">Barcode Manual</label>
-                <input type="text" id="barcode" name="barcode" autofocus placeholder="Input manual kalau tidak scan" 
+                <label for="barcode" class="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-2">Barcode Manual / Hasil Scan</label>
+                <input type="text" id="barcode" name="barcode" autofocus required placeholder="Input manual kalau tidak scan" 
                        class="w-full px-4 py-3.5 bg-gray-50/50 border border-gray-200 rounded-2xl text-gray-800 placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:bg-white transition text-sm">
             </div>
 
-            <button type="submit" class="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-2xl transition shadow-sm flex items-center justify-center gap-2 text-sm">
+            <button type="submit" class="w-full py-4 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold rounded-2xl transition shadow-sm flex items-center justify-center gap-2 text-sm">
                 <i data-lucide="scan" class="w-4 h-4"></i>
-                <span>Scan Manual</span>
+                <span>Proses Barcode</span>
             </button>
         </form>
 
     </div>
-
 </div>
 
 <script>
     // Inisialisasi Ikon Lucide
     lucide.createIcons();
     
-    // Auto-focus kembali ke input setelah halaman memuat ulang
     const inputBarcode = document.getElementById('barcode');
-    if (inputBarcode) {
-        inputBarcode.focus();
-    }
+    if (inputBarcode) { inputBarcode.focus(); }
+
+    // ====== LOGIK SCANNER KAMERA ======
+    let html5QrcodeScanner = null;
+    const btnCamera = document.getElementById('btn-camera');
+    const btnCloseCamera = document.getElementById('btn-close-camera');
+    const cameraContainer = document.getElementById('camera-container');
+    const scanForm = document.getElementById('scan-form');
+
+    btnCamera.addEventListener('click', () => {
+        // Tampilkan kotak kamera
+        cameraContainer.classList.remove('hidden');
+        btnCamera.classList.add('hidden'); // Sembunyikan tombol buka kamera sementara
+
+        // Konfigurasi scanner
+        if (!html5QrcodeScanner) {
+            html5QrcodeScanner = new Html5QrcodeScanner(
+                "reader", 
+                { fps: 10, qrbox: {width: 250, height: 250}, aspectRatio: 1.0 }, 
+                false
+            );
+        }
+
+        // Fungsi jika berhasil membaca barcode
+        function onScanSuccess(decodedText, decodedResult) {
+            // Masukkan hasil ke input text
+            inputBarcode.value = decodedText;
+
+            // Matikan kamera dan sembunyikan kotak
+            html5QrcodeScanner.clear().then(() => {
+                cameraContainer.classList.add('hidden');
+                btnCamera.classList.remove('hidden');
+                
+                // OTOMATIS SUBMIT FORM
+                scanForm.submit();
+            });
+        }
+
+        // Mulai kamera
+        html5QrcodeScanner.render(onScanSuccess);
+    });
+
+    // Tombol untuk menutup kamera jika batal
+    btnCloseCamera.addEventListener('click', () => {
+        if (html5QrcodeScanner) {
+            html5QrcodeScanner.clear().then(() => {
+                cameraContainer.classList.add('hidden');
+                btnCamera.classList.remove('hidden');
+            });
+        }
+    });
 </script>
+<!-- Tambahan sedikit CSS agar tampilan UI Scanner bawaan library lebih rapi -->
+<style>
+    #reader button { background-color: #f3f4f6; color: #374151; padding: 6px 12px; border-radius: 8px; border: 1px solid #d1d5db; margin: 4px; font-size: 14px; cursor: pointer; }
+    #reader button:hover { background-color: #e5e7eb; }
+    #reader select { padding: 6px; border-radius: 8px; border: 1px solid #d1d5db; margin-bottom: 10px; font-size: 14px; }
+    #reader a { display: none !important; } /* Menyembunyikan link watermark library */
+</style>
 </body>
 </html>
